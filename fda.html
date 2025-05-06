@@ -82,7 +82,7 @@
     let drugs = [];
 
     async function loadIndex() {
-      const res = await fetch('/fda_drugs/index.json');
+      const res = await fetch('index.json');
       drugs = await res.json();
       document.querySelector('.total-drug').textContent = drugs.length;
       renderList(drugs);
