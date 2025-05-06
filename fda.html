@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FDA Drug Search</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    input { padding: 8px; width: 300px; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 8px 0; cursor: pointer; color: blue; text-decoration: underline; }
+
+    /* Modal styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal {
+      background: white;
+      padding: 20px;
+      width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      border-radius: 8px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+    }
+
+    .close-btn {
+      cursor: pointer;
+      font-size: 24px;
+      color: #666;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      background: #f8f8f8;
+      padding: 1rem;
+      margin-top: 1rem;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>FDA Drug Search (Total: <span class="total-drug"></span>)</h1>
+  <input type="text" id="search" placeholder="Search drug name..." />
+  <ul id="drug-list"></ul>
+
+  <!-- Modal structure -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Drug Info</h2>
+        <span class="close-btn" onclick="closeModal()">×</span>
+      </div>
+      <pre id="modal-content">Loading...</pre>
+    </div>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById('search');
+    const drugList = document.getElementById('drug-list');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+
+    let drugs = [];
+
+    async function loadIndex() {
+      const res = await fetch('/fda_drugs/index.json');
+      drugs = await res.json();
+      document.querySelector('.total-drug').textContent = drugs.length;
+      renderList(drugs);
+    }
+
+    function renderList(list) {
+      drugList.innerHTML = '';
+      list.forEach(drug => {
+        const li = document.createElement('li');
+        li.textContent = drug.brand_name || drug.generic_name || drug.slug;
+        li.onclick = () => openModal(drug.brand_name || drug.generic_name);
+        drugList.appendChild(li);
+      });
+    }
+
+    async function openModal(name) {
+      modalOverlay.style.display = 'flex';
+      modalTitle.textContent = `Loading "${name}"...`;
+      modalContent.textContent = '';
+
+      try {
+        const res = await fetch(`https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(name)}"`);
+        const data = await res.json();
+        modalTitle.textContent = name;
+        modalContent.textContent = JSON.stringify(data.results[0], null, 2);
+      } catch (err) {
+        modalTitle.textContent = `Error loading data for "${name}"`;
+        modalContent.textContent = err.message;
+      }
+    }
+
+    function closeModal() {
+      modalOverlay.style.display = 'none';
+    }
+
+    searchInput.addEventListener('input', e => {
+      const query = e.target.value.toLowerCase();
+      const filtered = drugs.filter(d =>
+        d.brand_name?.toLowerCase().includes(query) ||
+        d.generic_name?.toLowerCase().includes(query)
+      );
+      renderList(filtered);
+    });
+
+    loadIndex();
+  </script>
+</body>
+</html>
